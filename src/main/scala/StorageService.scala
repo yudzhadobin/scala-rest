@@ -23,4 +23,7 @@ class StorageService {
     this.storage.toList
   }
 
+  def update(id: Long, newName:String): Unit = {
+    getById(id).get.name = newName
+  }
 }

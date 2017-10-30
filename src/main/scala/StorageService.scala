@@ -3,27 +3,27 @@
   */
 class StorageService {
 
-  var storage: Set[Item] = Set()
+  var storage: Map[Int, Item] = Map()
 
   def apply: StorageService = new StorageService()
 
   def put(item: Item): Unit = {
-    this.storage += item
+    this.storage +=  item.id -> item
   }
 
-  def getById(id: Long): Option[Item] = {
-    this.storage.find(item => item.id == id)
+  def getById(id: Int): Option[Item] = {
+    this.storage.values.find((item: Item) => item.id == id)
   }
 
-  def remove(id: Long): Unit = {
-    this.storage -= this.getById(id).get
+  def remove(id: Int): Unit = {
+    this.storage -= id
   }
 
   def view(): List[Item] = {
-    this.storage.toList
+    this.storage.values.toList
   }
 
-  def update(id: Long, newName:String): Unit = {
+  def update(id: Int, newName:String): Unit = {
     getById(id).get.name = newName
   }
 }

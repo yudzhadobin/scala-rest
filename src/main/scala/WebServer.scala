@@ -1,6 +1,6 @@
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.server.HttpApp
 import akka.http.scaladsl.server.Route
@@ -14,49 +14,70 @@ import scala.concurrent.Await
 
 object WebServer extends HttpApp with SprayJsonSupport with DefaultJsonProtocol {
   val system = ActorSystem("HelloSystem")
+  val coordinator = system.actorOf(Props(new StorageCoordinatorActor(system)), name = "coord")
 
-  val storageActor:ActorRef = system.actorOf(Props[StorageActor], name = "storage")
   implicit val itemFormat = jsonFormat2(Item)
 
 
   override def routes: Route = {
-    pathPrefix("item") {
-      pathPrefix(LongNumber) { id =>
+    pathPrefix("storage") {
+      pathPrefix(Segment) { storageName => {
         path("create") {
           get {
-            parameter("value".as[String]) { value =>
-              storageActor ! CreateItemMessage(Item(id, value))
-              complete(StatusCodes.OK, "item created")
-            }
+            coordinator ! CreateStorageMessage(storageName)
+            complete(StatusCodes.OK, s"storage {$storageName} created")
           }
         } ~
-          path("delete") {
-            storageActor ! DeleteItemMessage(id)
-            complete(StatusCodes.OK, "item deleted")
-          } ~
-          path("find") {
-            implicit val timeout = Timeout(Duration.create(1, TimeUnit.SECONDS))
-            val future = storageActor ? FindItemMessage(id)
+          pathPrefix("item") {
+            pathPrefix(IntNumber) { id =>
+              path("create") {
+                get {
+                  parameter("value".as[String]) { value =>
+                    coordinator ! UpdateStorageMessage(storageName, CreateItemMessage(Item(id, value)))
+                    complete(StatusCodes.OK, "item created")
+                  }
+                }
+              } ~
+                path("delete") {
+                  coordinator ! UpdateStorageMessage(storageName, DeleteItemMessage(id))
+                  complete(StatusCodes.OK, "item deleted")
+                } ~
+                path("find") {
+                  implicit val timeout = Timeout(Duration.create(1, TimeUnit.SECONDS))
+                  val future = coordinator ? UpdateStorageMessage(storageName, FindItemMessage(id))
 
-            Await.result(future, timeout.duration).asInstanceOf[Option[Item]] match {
-              case Some(value) => complete(StatusCodes.OK, value)
-              case None => complete(StatusCodes.NotFound)
-            }
+                  Await.result(future, timeout.duration).asInstanceOf[Option[Item]] match {
+                    case Some(value) => complete(StatusCodes.OK, value)
+                    case None => complete(StatusCodes.NotFound)
+                  }
+                }
+            } ~
+              path("view") {
+                get {
+                  implicit val timeout = Timeout(Duration.create(1, TimeUnit.SECONDS))
+                  val future = coordinator ? UpdateStorageMessage(storageName, ViewMessage)
+
+                  val view = Await.result(future, timeout.duration).asInstanceOf[List[Item]]
+
+                  complete(StatusCodes.OK, view)
+                }
+              }
           }
+      }
       } ~
-        path("view") {
+        path("view_all") {
           get {
             implicit val timeout = Timeout(Duration.create(1, TimeUnit.SECONDS))
-            val future = storageActor ? ViewMessage
-
-            val view = Await.result(future, timeout.duration).asInstanceOf[List[Item]]
-
-            complete(StatusCodes.OK, view)
+            val future = coordinator ? ViewAllStorageMessage()
+            val result = Await.result(future, timeout.duration).asInstanceOf[scala.collection.mutable.HashMap[String, List[Item]]]
+            complete(StatusCodes.OK, result.toList)
           }
         }
     }
   }
 
+
 }
+
 
 

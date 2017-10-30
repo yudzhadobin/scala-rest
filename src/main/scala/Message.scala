@@ -3,9 +3,10 @@
   */
 case class ViewMessage()
 case class CreateItemMessage(item: Item)
-case class DeleteItemMessage(id: Long)
-case class UpdateItemMessage(id: Long, newName: String)
-case class FindItemMessage(id: Long)
+case class DeleteItemMessage(id: Int)
+case class UpdateItemMessage(id: Int, newName: String)
+case class FindItemMessage(id: Int)
 case class ResultMessage(result:Any)
 case class CreateStorageMessage(name: String)
 case class UpdateStorageMessage(storageName: String, message:Any)
+case class ViewAllStorageMessage()

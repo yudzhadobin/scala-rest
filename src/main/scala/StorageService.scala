@@ -1,9 +1,11 @@
+import objects.{Item, Field}
+
 /**
   * Created by yuriy on 28.10.17.
   */
 class StorageService {
 
-  var storage: Map[Int, Item] = Map()
+  var storage: Map[Long, Item] = Map()
 
   def apply: StorageService = new StorageService()
 
@@ -11,11 +13,11 @@ class StorageService {
     this.storage +=  item.id -> item
   }
 
-  def getById(id: Int): Option[Item] = {
+  def getById(id: Long): Option[Item] = {
     this.storage.values.find((item: Item) => item.id == id)
   }
 
-  def remove(id: Int): Unit = {
+  def remove(id: Long): Unit = {
     this.storage -= id
   }
 
@@ -23,7 +25,7 @@ class StorageService {
     this.storage.values.toList
   }
 
-  def update(id: Int, newName:String): Unit = {
-    getById(id).get.name = newName
+  def update(id: Long, field:Field, newValue: Any): Unit = {
+//    getById(id).get.name = newName
   }
 }

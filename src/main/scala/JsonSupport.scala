@@ -20,15 +20,7 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol{
 
     override def write(obj: Class[_]): JsValue = ???
   }
-  implicit object FilterJsonFormat extends JsonFormat[Filter] {
-    override def write(obj: Filter): JsValue = ???
 
-    override def read(json: JsValue): Filter = {
-      val in = json.asJsObject.fields
-
-      val fiel
-    }
-  }
 
   implicit val rawItemFormat = jsonFormat1(RawItem)
   implicit val fieldFormat = jsonFormat2(Field)

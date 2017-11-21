@@ -5,7 +5,7 @@ import objects.{RawItem, Schema}
 /**
   * Created by yuriy on 29.10.17.
   */
-case class ViewMessage()
+case class ViewMessage(filter)
 case class CreateItemMessage(id: Long, rawItem: RawItem)
 case class DeleteItemMessage(id: Long)
 case class UpdateItemMessage(id: Long, newName: String)

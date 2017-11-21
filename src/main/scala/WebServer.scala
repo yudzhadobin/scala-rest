@@ -1,6 +1,7 @@
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.http.scaladsl.unmarshalling.{FromStringUnmarshaller, Unmarshaller}
 import akka.http.scaladsl.server.HttpApp
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.model.StatusCodes
@@ -21,6 +22,11 @@ object WebServer extends HttpApp with JsonSupport {
 
   implicit val timeout = Timeout(Duration.create(300, TimeUnit.SECONDS))
 
+  implicit val rawIntFromEntityUnmarshaller: FromStringUnmarshaller[Direction] = Unmarshaller.strict {
+    case ">" => Up
+    case "<" => Less
+    case "=" => Equals
+  }
 
   override def routes: Route = {
     pathPrefix("storage") {
@@ -55,9 +61,8 @@ object WebServer extends HttpApp with JsonSupport {
           coordinator ! UpdateStorageMessage(storageName, CreateItemMessage(id, rawItem))
           complete(StatusCodes.OK, "item created") //todo feature
         } ~
-          (get & parameters('fieldName, 'direction, 'value).as(Filter)) {
+          (get & parameters('fieldName, 'direction.as[Direction], 'value.as[Int]).as[Filter]) { (filter) =>
             val future = coordinator ? UpdateStorageMessage(storageName, ViewMessage())
-
             onComplete(future) {
               case Success(view: List[Item]) => complete(StatusCodes.OK, view.map((item) => item.toViewItem()))
               case Failure(e) => complete(StatusCodes.NotFound)

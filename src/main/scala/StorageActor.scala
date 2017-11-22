@@ -1,8 +1,9 @@
 import java.util.Date
 import java.text.SimpleDateFormat
+
 import akka.actor.Actor
 import messages._
-import objects.{Item, RawItem, Schema}
+import objects._
 
 /**
   * Created by yuriy on 31.10.17.
@@ -35,12 +36,27 @@ class StorageActor(val schema: Schema) extends Actor {
 //      storage.update(message.id, ) //todo
       sender () ! "ok"
     }
-    case _: ViewMessage =>  {
-      sender() ! storage.view()
+    case message: ViewMessage =>  {
+      sender() ! storage.view(toInnerFilter(message.filter))
     }
 
   }
 
+  def toInnerFilter(filter: Filter): InnerFilter = {
+    val fieldSchema = schema.getFieldByName(filter.fieldName)
+
+    if (fieldSchema.isEmpty) {
+      throw new IllegalArgumentException("filter is incorrect")
+    }
+
+    val value = transform(filter.value, fieldSchema.get.`type`)
+
+    if (value.isEmpty) {
+      throw new IllegalArgumentException("filter is incorrect")
+    }
+
+    InnerFilter(filter.fieldName, filter.direction, value.get)
+  }
 
   def validate(createItemMessage: CreateItemMessage): Option[Item] = {
     val rawItem = createItemMessage.rawItem
@@ -49,11 +65,13 @@ class StorageActor(val schema: Schema) extends Actor {
     try {
       val fields = rawItem.fields.map(
         kv => {
-          val targetField = schema.getFieldByName(kv._1)
+          val targetFieldOption = schema.getFieldByName(kv._1)
 
-          if (targetField == null) {
+          if (targetFieldOption.isEmpty) {
             throw new IllegalArgumentException(s"no field in schema with name : ${kv._1}")
           }
+
+          val targetField = targetFieldOption.get
 
           val value = transform(kv._2, targetField.`type`)
 
@@ -71,19 +89,18 @@ class StorageActor(val schema: Schema) extends Actor {
     }
   }
 
-
-  def transform(from:String, to:Class[_]): Option[Any] =
-    if (to == classOf[Int]) {
-      Some(from.toInt)
-    } else if (to == classOf[Double]) {
-      Some(from.toDouble)
-    } else if (to == classOf[String]) {
-      Some(from)
-    } else if (to == classOf[Date]) {
-      val format = new SimpleDateFormat("yyyy.MM.dd");
-      Some(format.parse(from))
+  def transform(from:String, to:Class[_ <: AcceptableType]): Option[_ <: AcceptableType] = {
+    if (to == classOf[IntType]) {
+      Some(IntType(from.toInt))
+    } else if (to == classOf[DoubleType]) {
+      Some(DoubleType(from.toDouble))
+    } else if (to == classOf[StringType]) {
+      Some(StringType(from))
+    } else if (to == classOf[DateType]) {
+      val format = new SimpleDateFormat("yyyy.MM.dd")
+      Some(DateType(format.parse(from)))
     } else {
       Option.empty
     }
-
+  }
 }

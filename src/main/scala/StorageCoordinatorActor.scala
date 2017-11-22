@@ -5,8 +5,9 @@ import akka.util.Timeout
 import akka.pattern.ask
 import messages._
 
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext}
 import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success}
 
 class StorageCoordinatorActor(system: ActorSystem)(implicit  executionContext: ExecutionContext) extends Actor with JsonSupport {
 
@@ -18,15 +19,18 @@ class StorageCoordinatorActor(system: ActorSystem)(implicit  executionContext: E
       storageActors += message.name -> system.actorOf(Props(new StorageActor(message.schema)), name = message.name)
 
       sender() ! "ok"
+
     case message: UpdateStorageMessage =>
       val ref: ActorRef = storageActors.get(message.storageName).get
-      val future = ref ? message.message
 
-      sender() ! Await.result(future, timeout.duration) //todo onComplete
+      val web_ref = sender()
+      ref ? message.message onComplete {
+        case Success(result: Any) => web_ref ! result
+        case Failure(e) => web_ref ! e
+      }
 
     case _: GetAllActors => {
       sender() ! storageActors
     }
-    case d => println(d)
   }
 }

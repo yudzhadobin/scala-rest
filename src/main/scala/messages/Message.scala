@@ -1,11 +1,11 @@
 package messages
 
-import objects.{RawItem, Schema}
+import objects.{Filter, RawItem, Schema}
 
 /**
   * Created by yuriy on 29.10.17.
   */
-case class ViewMessage(filter)
+case class ViewMessage(filter: Filter)
 case class CreateItemMessage(id: Long, rawItem: RawItem)
 case class DeleteItemMessage(id: Long)
 case class UpdateItemMessage(id: Long, newName: String)

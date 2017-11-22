@@ -5,8 +5,8 @@ package objects
   */
 case class Schema(fields: List[Field]) {
 
-  def getFieldByName(fieldName: String) : Field = {
-    fields.filter(field => field.name == fieldName).head
+  def getFieldByName(fieldName: String) : Option[Field] = {
+    fields.find(field => field.name == fieldName)
   }
 
 };

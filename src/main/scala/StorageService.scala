@@ -1,4 +1,4 @@
-import objects.{Item, Field}
+import objects.{Field, Filter, InnerFilter, Item}
 
 /**
   * Created by yuriy on 28.10.17.
@@ -21,8 +21,8 @@ class StorageService {
     this.storage -= id
   }
 
-  def view(): List[Item] = {
-    this.storage.values.toList
+  def view(filter: InnerFilter): List[Item] = {
+    this.storage.values.filter(item => item.isAcceptedForFilter(filter)).toList
   }
 
   def update(id: Long, field:Field, newValue: Any): Unit = {

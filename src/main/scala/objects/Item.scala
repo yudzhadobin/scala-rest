@@ -2,8 +2,6 @@ package objects
 
 import java.util.Date
 
-import com.sun.jdi.IntegerValue
-
 /**
   * Created by yuriy on 28.10.17.
   */
@@ -22,10 +20,11 @@ final case class Item(id: Long, fields: Map[String, _ <: AcceptableType]) {
         case (DoubleType(value), DoubleType(filterValue)) => filter.compare[Double](value, filterValue)
         case (StringType(value), StringType(filterValue)) => filter.compare[String](value, filterValue)
         case (DateType(value), DateType(filterValue)) => filter.compare[Date](value, filterValue)
+        case (_,  _) => throw new IllegalArgumentException("Not supported types for filter")
       }
     }
   }
 
-  def  toViewItem():Map[String, String] = fields.map(kv => kv._1 -> kv._2.getValue.toString) + ("id" -> id.toString)
+  def  toViewItem():Map[String, String] = fields.map(kv => kv._1 -> kv._2.value.toString) + ("id" -> id.toString)
 
 }

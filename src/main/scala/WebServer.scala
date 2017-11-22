@@ -16,8 +16,7 @@ import scala.util.{Failure, Success}
 object WebServer extends HttpApp with JsonSupport {
   val system = ActorSystem("HelloSystem")
   implicit val executorContext = system.dispatcher
-
-  private val coordinator = system.actorOf(Props(new StorageCoordinatorActor(system)), name = "coord")
+  private val coordinator = system.actorOf(Props(new StorageCoordinatorActor()), name = "coord")
 
   implicit val timeout = Timeout(Duration.create(5, TimeUnit.SECONDS))
 
@@ -29,6 +28,10 @@ object WebServer extends HttpApp with JsonSupport {
           complete(StatusCodes.OK, s"storage {$storageName} created")
         } ~
           get {
+//            coordinator ? GetAllActors() onComplete(
+//              case Success(actors: )
+//            )
+
             complete(StatusCodes.NotImplemented)
           }
       } ~
@@ -53,28 +56,23 @@ object WebServer extends HttpApp with JsonSupport {
                 val future = coordinator ? UpdateStorageMessage(storageName, FindItemMessage(id))
 
                 onComplete(future) {
-                  case Success(value: Option[Item]) => complete(StatusCodes.OK, value.get.toViewItem())
-                  case Failure(e) => {
-                    println(e)
-                    complete(StatusCodes.InternalServerError)
-                  }
+                  case Success(value: Some[Item]) => complete(StatusCodes.OK, value.get.toViewItem())
+                  case Failure(e) => complete(StatusCodes.InternalServerError)
                 }
               } ~
-                delete {
-                  coordinator ! UpdateStorageMessage(storageName, DeleteItemMessage(id))
-                  complete(StatusCodes.OK, "item deleted")
-                } ~
-                (put & parameter("value".as[String])) { value => {
+              delete {
+                coordinator ! UpdateStorageMessage(storageName, DeleteItemMessage(id))
+                complete(StatusCodes.OK, "item deleted")
+              } ~
+              (put & parameter("value".as[String])) { value => {
                   coordinator ! UpdateStorageMessage(storageName, UpdateItemMessage(id, value))
                   complete(StatusCodes.OK, "item updated")
                 }
-                }
+              }
             }
             }
         }
         }
     }
-
   }
-
 }

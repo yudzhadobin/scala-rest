@@ -38,16 +38,11 @@ object WebServer extends HttpApp with JsonSupport {
             complete(StatusCodes.OK, "item created") //todo feature
           } ~
             (get & parameters('fieldName, 'direction.as[Direction], 'value).as(Filter)) { (filter) =>
-              println("HIIIIIIII")
               val future = coordinator ? UpdateStorageMessage(storageName, ViewMessage(filter))
-
 
               onComplete(future) {
                 case Success(view: List[Item]) => complete(StatusCodes.OK, view.map((item) => item.toViewItem()))
-                case Failure(e) => {
-                    println(e)
-                    complete(StatusCodes.InternalServerError)
-                  }
+                case Failure(e) => complete(StatusCodes.InternalServerError)
               }
             } ~
             put {

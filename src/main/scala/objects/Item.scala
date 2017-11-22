@@ -26,6 +26,6 @@ final case class Item(id: Long, fields: Map[String, _ <: AcceptableType]) {
     }
   }
 
-  def  toViewItem():Map[String, String] = fields.map(kv => kv._1 -> kv._2.toString) + ("id" -> id.toString)
+  def  toViewItem():Map[String, String] = fields.map(kv => kv._1 -> kv._2.getValue.toString) + ("id" -> id.toString)
 
 }

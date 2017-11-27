@@ -25,13 +25,9 @@ case object Equals extends Direction {
 }
 
 
-case class Filter(fieldName: String, direction: Direction, value: String) {
-}
-
-case class InnerFilter(fieldName: String, direction: Direction, value: AcceptableType) {
+case class Filter(fieldName: String, direction: Direction, value: AcceptableType) {
   def compare[T <% Comparable[T]](a: T, b: T): Boolean = {
     direction.compare(a, b)
   }
 }
-
 

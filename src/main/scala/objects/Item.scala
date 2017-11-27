@@ -5,9 +5,9 @@ import java.util.Date
 /**
   * Created by yuriy on 28.10.17.
   */
-final case class Item(id: Long, fields: Map[String, _ <: AcceptableType]) {
+final case class Item(id: Option[Long], fields: Map[String, AcceptableType]) {
 
-  def isAcceptedForFilter(filter: InnerFilter) : Boolean = {
+  def isAcceptedForFilter(filter: Filter) : Boolean = {
     val field = filter.fieldName
     val optionValue = fields.get(field)
     if (optionValue.isEmpty) {
@@ -24,7 +24,4 @@ final case class Item(id: Long, fields: Map[String, _ <: AcceptableType]) {
       }
     }
   }
-
-  def  toViewItem():Map[String, String] = fields.map(kv => kv._1 -> kv._2.value.toString) + ("id" -> id.toString)
-
 }

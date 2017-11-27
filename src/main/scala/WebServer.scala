@@ -1,78 +1,131 @@
 import java.util.concurrent.TimeUnit
 
+import actors._
 import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.server.HttpApp
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.model.StatusCodes
 import akka.pattern.ask
 import akka.util.Timeout
-import messages._
 import objects._
+import utils.JsonSupport
 
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 
 
 object WebServer extends HttpApp with JsonSupport {
   val system = ActorSystem("HelloSystem")
-  implicit val executorContext = system.dispatcher
+  implicit val executorContext: ExecutionContextExecutor = system.dispatcher
   private val coordinator = system.actorOf(Props(new StorageCoordinatorActor()), name = "coord")
 
   implicit val timeout = Timeout(Duration.create(5, TimeUnit.SECONDS))
 
-  override def routes: Route = {
-    pathPrefix("storage") {
-      pathEnd {
-        (post & parameter("name".as[String]) & entity(as[Schema])) { (storageName, schema) =>
-          coordinator ! CreateStorageMessage(storageName, schema)
-          complete(StatusCodes.OK, s"storage {$storageName} created")
-        } ~
-          get {
-//            coordinator ? GetAllActors() onComplete(
-//              case Success(actors: )
-//            )
+  override def routes: Route = storageCoordinatorRoute ~ storageRoute ~ itemRoute
 
-            complete(StatusCodes.NotImplemented)
+  def storageCoordinatorRoute = (pathPrefix("storage") & pathEndOrSingleSlash) {
+    get {
+      val future = coordinator ? GetAllSchemasMessage()
+      onComplete(future) {
+        case Success(schemas: List[Schema]) =>
+          println("hi")
+          complete(StatusCodes.OK, schemas)
+        case Failure(e) =>
+          println("Bad")
+          complete(StatusCodes.InternalServerError, e.toString)
+      }
+    } ~ (post & entity(as[Schema])) { schema =>
+      coordinator ? CreateStorageMessage(schema)
+      complete(StatusCodes.OK, s"storage created") //todo
+    } ~ (put & entity(as[List[Schema]])) { schemas =>
+      val future = coordinator ? ReplaceAllStorages(schemas)
+
+      onComplete(future) {
+        case Success(newSchemas: List[Schema]) => complete(StatusCodes.OK, newSchemas)
+        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+      }
+    } ~ (delete & parameter("name")) { storageName =>
+      val future = coordinator ? DeleteStorageMessage(storageName)
+      onComplete(future) {
+        case Success(_) => complete(StatusCodes.OK, "storage dropped")
+        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+      }
+    }
+  }
+
+  def storageRoute = pathPrefix("storage" / Segment) { storageName =>
+    get {
+      val future = coordinator ? UpdateStorageMessage(storageName, ViewMessage(Option.empty))
+
+      onComplete(future) {
+        case Success(view: List[Item]) => complete(StatusCodes.OK, view)
+        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+      }
+    } ~ (get & parameters('fieldName, 'direction.as[Direction], 'value.as[AcceptableType]).as(Filter)) { filter =>
+      val future = coordinator ? UpdateStorageMessage(storageName, ViewMessage(Some(filter)))
+
+      onComplete(future) {
+        case Success(view: List[Item]) => complete(StatusCodes.OK, view)
+        case Failure(e) => complete(StatusCodes.InternalServerError)
+      }
+    } ~ (post & entity(as[Item])) { item =>
+      val schemaFuture = coordinator ? UpdateStorageMessage(storageName, GetSchemaMessage())
+
+      onComplete(schemaFuture) {
+        case Success(schema: Schema) => validate(schema.isOk(item), "item not suitable to schema") {
+          val itemFuture = coordinator ? UpdateStorageMessage(storageName, CreateItemMessage(item))
+
+          onComplete(itemFuture) {
+            case Success(item : Some[Item]) => complete(StatusCodes.Created, item.get)
+            case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
           }
-      } ~
-        pathPrefix(Segment) { storageName => {
-          (post & parameter("id".as[Long]) & entity(as[RawItem])) { (id, rawItem) =>
-            coordinator ! UpdateStorageMessage(storageName, CreateItemMessage(id, rawItem))
-            complete(StatusCodes.OK, "item created") //todo feature
-          } ~
-            (get & parameters('fieldName, 'direction.as[Direction], 'value).as(Filter)) { (filter) =>
-              val future = coordinator ? UpdateStorageMessage(storageName, ViewMessage(filter))
-
-              onComplete(future) {
-                case Success(view: List[Item]) => complete(StatusCodes.OK, view.map((item) => item.toViewItem()))
-                case Failure(e) => complete(StatusCodes.InternalServerError)
-              }
-            } ~
-            put {
-              complete(StatusCodes.NotImplemented)
-            } ~
-            pathPrefix("item" / LongNumber) { id => {
-              get {
-                val future = coordinator ? UpdateStorageMessage(storageName, FindItemMessage(id))
-
-                onComplete(future) {
-                  case Success(value: Some[Item]) => complete(StatusCodes.OK, value.get.toViewItem())
-                  case Failure(e) => complete(StatusCodes.InternalServerError)
-                }
-              } ~
-              delete {
-                coordinator ! UpdateStorageMessage(storageName, DeleteItemMessage(id))
-                complete(StatusCodes.OK, "item deleted")
-              } ~
-              (put & parameter("value".as[String])) { value => {
-                  coordinator ! UpdateStorageMessage(storageName, UpdateItemMessage(id, value))
-                  complete(StatusCodes.OK, "item updated")
-                }
-              }
-            }
-            }
         }
+        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+      }
+    } ~ (put & entity(as[List[Item]])) { items =>
+      val schemaFuture = coordinator ? UpdateStorageMessage(storageName, GetSchemaMessage())
+
+      onComplete(schemaFuture) {
+        case Success(schema: Schema) => validate(items.forall(schema.isOk), "items are not suitable to schema") {
+          val itemsFuture = coordinator ? UpdateStorageMessage(storageName, ReplaceItemsMessage(items))
+
+          onComplete(itemsFuture) {
+            case Success(items : List[Item]) => complete(StatusCodes.Created, items)
+            case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+          }
         }
+        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+      }
+    } ~ (delete & parameters('id.as[Long])) { id =>
+      val deleteFuture = coordinator ? UpdateStorageMessage(storageName, DeleteItemMessage(id))
+      onComplete(deleteFuture) {
+        case Success(item: Item) => complete(StatusCodes.OK, item)
+        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+      }
+    }
+  }
+
+
+  def itemRoute = pathPrefix("storage" / Segment / "item" / LongNumber) { (storageName, id) =>
+    get {
+      val future = coordinator ? UpdateStorageMessage(storageName, FindItemMessage(id))
+
+      onComplete(future) {
+        case Success(Some(value : Item)) => complete(StatusCodes.OK, value)
+        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+      }
+    } ~ (put & entity(as[Item])) { item =>
+      validate(item.id.isDefined, "id have to be declared") {
+        val future = coordinator ? UpdateStorageMessage(storageName, UpdateItemMessage(item))
+        onComplete(future) {
+          case Success(Some(value : Item)) => complete(StatusCodes.OK, value)
+          case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+        }
+      }
+    } ~ delete {
+        coordinator ! UpdateStorageMessage(storageName, DeleteItemMessage(id))
+        complete(StatusCodes.OK, "item deleted")
     }
   }
 }

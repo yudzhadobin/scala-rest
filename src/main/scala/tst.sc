@@ -1,3 +1,1 @@
-import objects.{DateType, Field}
-
-val e = Field("qq", classOf[DateType])
+import objects._

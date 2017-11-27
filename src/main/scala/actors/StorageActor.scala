@@ -22,17 +22,18 @@ class StorageActor(val schema: Schema) extends Actor {
       val item = storage.getById(message.id)
       storage.remove(message.id)
       sender () ! item
-    case message: FindItemMessage => sender() ! storage.getById(message.id)
+    case message: FindItemMessage =>
+      sender() ! storage.getById(message.id)
     case message: UpdateItemMessage =>
       storage.update(message.item)
       sender () ! Done
-    case message: ViewMessage =>  sender() ! storage.view(message.filter)
+    case message: ViewMessage =>
+      sender() ! storage.view(message.filter)
     case message: ReplaceItemsMessage =>
       storage.clear()
       message.items.foreach(storage.put)
       sender() ! storage.view()
     case _: GetSchemaMessage =>
-      println("schema good")
       sender() ! schema
     case _ => println("not supported")
   }

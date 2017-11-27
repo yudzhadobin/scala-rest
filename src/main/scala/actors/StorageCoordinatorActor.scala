@@ -43,14 +43,10 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
         case Success(_) =>
           Future.sequence(message.schemas.map(createStorage)) onComplete {
             case Success(_) => self ? GetAllSchemasMessage() pipeTo resultActor
-            case Failure(e) =>
-              println("bad" + e.toString)
+            case Failure(e) => sender() ! e
           }
 
-        case Failure(e) =>
-            println("bad" + e.toString)
-//          message.schemas.foreach(createStorage)
-//          sender() ! Done
+        case Failure(e) => sender() ! e
       }
 
 

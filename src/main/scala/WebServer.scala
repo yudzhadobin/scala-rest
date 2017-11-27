@@ -29,15 +29,19 @@ object WebServer extends HttpApp with JsonSupport {
       val future = coordinator ? GetAllSchemasMessage()
       onComplete(future) {
         case Success(schemas: List[Schema]) =>
-          println("hi")
           complete(StatusCodes.OK, schemas)
         case Failure(e) =>
-          println("Bad")
           complete(StatusCodes.InternalServerError, e.toString)
       }
     } ~ (post & entity(as[Schema])) { schema =>
-      coordinator ? CreateStorageMessage(schema)
-      complete(StatusCodes.OK, s"storage created") //todo
+      val future = coordinator ? CreateStorageMessage(schema)
+
+      onComplete(future) {
+        case Success(schema: Schema) =>
+          complete(StatusCodes.OK, schema)
+        case Failure(e) =>
+          complete(StatusCodes.InternalServerError, e.toString)
+      }
     } ~ (put & entity(as[List[Schema]])) { schemas =>
       val future = coordinator ? ReplaceAllStorages(schemas)
 
@@ -67,7 +71,7 @@ object WebServer extends HttpApp with JsonSupport {
 
       onComplete(future) {
         case Success(view: List[Item]) => complete(StatusCodes.OK, view)
-        case Failure(e) => complete(StatusCodes.InternalServerError)
+        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
       }
     } ~ (post & entity(as[Item])) { item =>
       val schemaFuture = coordinator ? UpdateStorageMessage(storageName, GetSchemaMessage())
@@ -123,9 +127,6 @@ object WebServer extends HttpApp with JsonSupport {
           case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
         }
       }
-    } ~ delete {
-        coordinator ! UpdateStorageMessage(storageName, DeleteItemMessage(id))
-        complete(StatusCodes.OK, "item deleted")
     }
   }
 }

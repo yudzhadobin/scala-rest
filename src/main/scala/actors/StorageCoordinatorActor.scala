@@ -3,7 +3,7 @@ package actors
 import java.util.concurrent.TimeUnit
 
 import akka.Done
-import akka.actor.{Actor, ActorRef, PoisonPill, Props, Terminated}
+import akka.actor.{Actor, ActorRef, Props, Status}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import objects.Schema
@@ -21,20 +21,22 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
 
   override def receive = {
     case message: CreateStorageMessage =>
-      createStorage(message.schema)
-      sender() ! Done //todo
-
+      val answerRef = sender()
+      createStorage(message.schema) onComplete {
+        case Success(_) => answerRef ! message.schema
+        case Failure(e) => answerRef ! Status.Failure(e)
+      }
     case message: UpdateStorageMessage =>
       context.child(message.storageName) match {
         case Some(actorRef) => actorRef ? message.message pipeTo sender
-        case None => sender ! Done //todo error
+        case None => sender ! Status.Failure(new IllegalArgumentException(s"actor with name ${message.storageName} not found"))
       }
     case message: DeleteStorageMessage =>
       context.child(message.storageName) match {
         case Some(actorRef) =>
           context.stop(actorRef)
           sender ! Done
-        case None => sender ! Done //todo error
+        case None => sender ! Status.Failure(new IllegalArgumentException(s"actor with name ${message.storageName} not found"))
       }
 
     case message: ReplaceAllStorages =>

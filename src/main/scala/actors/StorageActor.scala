@@ -1,7 +1,7 @@
 package actors
 
 import akka.Done
-import akka.actor.Actor
+import akka.actor.{Actor, Status}
 import objects._
 import services.StorageService
 
@@ -19,19 +19,28 @@ class StorageActor(val schema: Schema) extends Actor {
       storage.put(item)
       sender() ! storage.getById(item.id.get)
     case message: DeleteItemMessage =>
-      val item = storage.getById(message.id)
-      storage.remove(message.id)
-      sender () ! item
+      storage.getById(message.id) match {
+        case Some(item) =>
+          storage.remove(message.id)
+          sender() ! item
+        case None =>
+          sender() ! Status.Failure(new IllegalArgumentException(s"item with id ${message.id} is not found "))
+      }
     case message: FindItemMessage =>
       sender() ! storage.getById(message.id)
     case message: UpdateItemMessage =>
-      storage.update(message.item)
-      sender () ! Done
+      storage.getById(message.item.id.get) match {
+        case Some(item) =>
+          storage.update(message.item)
+          sender () ! storage.getById(item.id.get)
+        case None =>
+          sender() ! Status.Failure(new IllegalArgumentException(s"item with id ${message.item.id.get} is not found "))
+      }
     case message: ViewMessage =>
       sender() ! storage.view(message.filter)
     case message: ReplaceItemsMessage =>
       storage.clear()
-      message.items.foreach(storage.put)
+      message.items.map(registrar.registerItem).foreach(storage.put)
       sender() ! storage.view()
     case _: GetSchemaMessage =>
       sender() ! schema

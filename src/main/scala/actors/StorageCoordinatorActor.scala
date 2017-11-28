@@ -39,7 +39,7 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
         case None => sender ! Status.Failure(new IllegalArgumentException(s"actor with name ${message.storageName} not found"))
       }
 
-    case message: ReplaceAllStorages =>
+    case message: ReplaceAllStoragesMessage =>
       val resultActor = sender()
       Future.sequence(context.children.map(child => gracefulStop(child, 5 seconds))).flatMap(
         _ => Future.sequence(message.schemas.map(createStorage))
@@ -49,7 +49,7 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
       }
 
 
-    case _: GetAllActors => sender() ! context.children.toList
+    case _: GetAllActorsMessage => sender() ! context.children.toList
     case _: GetAllSchemasMessage =>
       Future.sequence(context.children.map(child => child ? GetSchemaMessage())) pipeTo sender
   }
@@ -63,8 +63,7 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
 
 case class CreateStorageMessage(schema: Schema)
 case class DeleteStorageMessage(storageName: String)
-
 case class UpdateStorageMessage(storageName: String, message:Any)
-case class GetAllActors()
+case class GetAllActorsMessage()
 case class GetAllSchemasMessage()
-case class ReplaceAllStorages(schemas: List[Schema])
+case class ReplaceAllStoragesMessage(schemas: List[Schema])

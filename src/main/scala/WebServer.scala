@@ -43,7 +43,7 @@ object WebServer extends HttpApp with JsonSupport {
           complete(StatusCodes.InternalServerError, e.toString)
       }
     } ~ (put & entity(as[List[Schema]])) { schemas =>
-      val future = coordinator ? ReplaceAllStorages(schemas)
+      val future = coordinator ? ReplaceAllStoragesMessage(schemas)
 
       onComplete(future) {
         case Success(newSchemas: List[Schema]) => complete(StatusCodes.OK, newSchemas)

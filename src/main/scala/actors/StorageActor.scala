@@ -1,6 +1,5 @@
 package actors
 
-import akka.Done
 import akka.actor.{Actor, Status}
 import objects._
 import services.StorageService

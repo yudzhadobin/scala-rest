@@ -41,16 +41,12 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
 
     case message: ReplaceAllStorages =>
       val resultActor = sender()
-      Future.sequence(context.children.map(child => gracefulStop(child, 5 seconds))) onComplete {
-        case Success(_) =>
-          Future.sequence(message.schemas.map(createStorage)) onComplete {
-            case Success(_) => self ? GetAllSchemasMessage() pipeTo resultActor
-            case Failure(e) => sender() ! e
-          }
-
+      Future.sequence(context.children.map(child => gracefulStop(child, 5 seconds))).flatMap(
+        _ => Future.sequence(message.schemas.map(createStorage))
+      ) onComplete {
+        case Success(_) => self ? GetAllSchemasMessage() pipeTo resultActor
         case Failure(e) => sender() ! e
       }
-
 
 
     case _: GetAllActors => sender() ! context.children.toList

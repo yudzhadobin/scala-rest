@@ -26,11 +26,7 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
         case Success(_) => answerRef ! message.schema
         case Failure(e) => answerRef ! Status.Failure(e)
       }
-    case message: UpdateStorageMessage =>
-      context.child(message.storageName) match {
-        case Some(actorRef) => actorRef ? message.message pipeTo sender
-        case None => sender ! Status.Failure(new IllegalArgumentException(s"actor with name ${message.storageName} not found"))
-      }
+
     case message: DeleteStorageMessage =>
       context.child(message.storageName) match {
         case Some(actorRef) =>
@@ -48,10 +44,12 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
         case Failure(e) => sender() ! e
       }
 
+    case message: GetActorRefMessage =>
+      sender ! context.child(message.name)
 
-    case _: GetAllActorsMessage => sender() ! context.children.toList
     case _: GetAllSchemasMessage =>
       Future.sequence(context.children.map(child => child ? GetSchemaMessage())) pipeTo sender
+
   }
 
   private def createStorage(schema: Schema): Future[ActorRef] = {
@@ -63,7 +61,6 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
 
 case class CreateStorageMessage(schema: Schema)
 case class DeleteStorageMessage(storageName: String)
-case class UpdateStorageMessage(storageName: String, message:Any)
-case class GetAllActorsMessage()
 case class GetAllSchemasMessage()
 case class ReplaceAllStoragesMessage(schemas: List[Schema])
+case class GetActorRefMessage(name: String)

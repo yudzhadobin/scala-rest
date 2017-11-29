@@ -1,6 +1,6 @@
 package services
 
-import objects.{Field, Filter, Item}
+import objects.{Filter, Item}
 
 /**
   * Created by yuriy on 28.10.17.
@@ -20,7 +20,10 @@ class StorageService {
   }
 
   def remove(id: Long): Unit = {
-    this.storage -= id
+    getById(id) match {
+      case Some(_) => this.storage -= id
+      case None => new IllegalArgumentException(s"item with id ${id} is not found ")
+    }
   }
 
   def view(filter: Option[Filter] = Option.empty): List[Item] = filter match {

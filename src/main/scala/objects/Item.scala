@@ -1,11 +1,10 @@
 package objects
 
-import java.util.Date
 
 /**
   * Created by yuriy on 28.10.17.
   */
-final case class Item(id: Option[Long], fields: Map[String, AcceptableType]) {
+final case class Item(id: Option[Long], fields: Map[String, AcceptableType[_]]) {
 
   def isAcceptedForFilter(filter: Filter) : Boolean = {
     val field = filter.fieldName
@@ -14,14 +13,7 @@ final case class Item(id: Option[Long], fields: Map[String, AcceptableType]) {
       false
     } else {
       val value = optionValue.get
-      val filterValue = filter.value
-      (value, filterValue) match {
-        case (IntType(value), IntType(filterValue)) => filter.compare[Int](value, filterValue)
-        case (DoubleType(value), DoubleType(filterValue)) => filter.compare[Double](value, filterValue)
-        case (StringType(value), StringType(filterValue)) => filter.compare[String](value, filterValue)
-        case (DateType(value), DateType(filterValue)) => filter.compare[Date](value, filterValue)
-        case (_,  _) => throw new IllegalArgumentException("Not supported types for filter")
-      }
+      filter.accept(value)
     }
   }
 }

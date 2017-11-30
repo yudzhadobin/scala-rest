@@ -24,11 +24,16 @@ class StorageActor(val schema: Schema) extends Actor {
       sender() ! Done
 
     case message: FindItemMessage =>
-      sender() ! storage.getById(message.id)
+      storage.getById(message.id) match {
+        case Some(item) => sender() ! item
+        case None => sender() ! Status.Failure(
+          new IllegalArgumentException(s"item with id ${message.id} not found")
+        )
+      }
 
     case message: UpdateItemMessage =>
       storage.update(message.item)
-      sender() ! storage.getById(message.item.id.get)
+      sender() ! storage.getById(message.item.id.get).get
 
     case message: ViewMessage =>
       sender() ! storage.view(message.filter)

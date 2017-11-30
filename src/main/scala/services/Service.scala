@@ -16,8 +16,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 /**
   * Created by yuriy on 29.11.17.
   */
-class Service {
-  val system = ActorSystem("HelloSystem")
+class Service(implicit val system: ActorSystem) {
   implicit val executorContext: ExecutionContextExecutor = system.dispatcher
   private val coordinator = system.actorOf(Props(new StorageCoordinatorActor()), name = "coord")
   implicit val timeout = Timeout(Duration.create(5, TimeUnit.SECONDS))

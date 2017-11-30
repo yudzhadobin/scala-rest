@@ -1,3 +1,4 @@
+import akka.actor.ActorSystem
 import akka.http.scaladsl.server.HttpApp
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.model.StatusCodes
@@ -8,20 +9,20 @@ import utils.JsonSupport
 import scala.util.{Failure, Success}
 
 
-object WebServer extends HttpApp with JsonSupport {
-  private val service: Service = new Service
+class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport {
+  val service: Service = new Service
 
   override def routes: Route =
     pathPrefix("storage") {
       pathEndOrSingleSlash {
         storageCoordinatorRoute
       } ~
-        path(Segment) { storageName =>
+        pathPrefix(Segment) { storageName =>
           pathEndOrSingleSlash {
             storageRoute(storageName)
           } ~
-            path("item" / LongNumber) { id =>
-              itemRoute(storageName, id)
+            path("item") {
+              itemRoute(storageName)
             }
         }
     }
@@ -125,22 +126,28 @@ object WebServer extends HttpApp with JsonSupport {
       }
   }
 
-  private def itemRoute(storageName: String, id: Long): Route = {
-    get {
+  private def itemRoute(storageName: String): Route = {
+    (get & parameter("id".as[Int])) { id =>
       val future = service.findItem(storageName, id)
 
       onComplete(future) {
         case Success(item) => complete(StatusCodes.OK, item)
-        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+        case Failure(e) => complete(StatusCodes.BadRequest, e.toString)
       }
     } ~
       (put & entity(as[Item])) { item =>
         validate(item.id.isDefined, "id have to be declared") {
-          val future = service.updateItem(storageName, item)
+          val schemaFuture = service.getSchema(storageName)
 
-          onComplete(future) {
-            case Success(value) => complete(StatusCodes.OK, value)
-            case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+          onComplete(schemaFuture) {
+            case Success(schema: Schema) => validate(schema.validate(item), "item is not suitable to schema") {
+              val future = service.updateItem(storageName, item)
+
+              onComplete(future) {
+                case Success(value) => complete(StatusCodes.OK, value)
+                case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+              }
+            }
           }
         }
       }

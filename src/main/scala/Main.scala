@@ -1,10 +1,12 @@
+import akka.actor.ActorSystem
 
 object Main {
 
   def main(args: Array[String]): Unit = {
+    implicit val system = ActorSystem("main")
 
     println("hi")
-    WebServer.startServer("localhost", 8080)
+    new WebServer().startServer("localhost", 8080)
     println("bay")
   }
 

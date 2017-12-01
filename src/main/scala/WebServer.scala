@@ -148,6 +148,7 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport {
                 case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
               }
             }
+            case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
           }
         }
       }

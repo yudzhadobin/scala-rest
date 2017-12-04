@@ -1,4 +1,4 @@
-package objects
+package rest.objects
 
 
 case class Filter(fieldName: String, value: AcceptableType[_]) {

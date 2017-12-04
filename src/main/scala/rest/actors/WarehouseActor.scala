@@ -1,9 +1,9 @@
-package actors
+package rest.actors
 
 import akka.Done
 import akka.actor.{Actor, Status}
-import objects._
-import services.WarehouseWrapper
+import rest.objects._
+import rest.services.WarehouseWrapper
 
 
 class WarehouseActor(val schema: Schema) extends Actor {

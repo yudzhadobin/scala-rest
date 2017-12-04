@@ -1,6 +1,10 @@
+package rest
+
 import akka.actor.ActorSystem
 
-
+/**
+  * Created by yuriy on 04.12.17.
+  */
 object Main {
 
   def main(args: Array[String]): Unit = {

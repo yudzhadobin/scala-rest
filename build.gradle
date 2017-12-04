@@ -12,7 +12,7 @@ repositories{
 
 task wrapper(type: Wrapper) {
     gradleVersion = '3.1'
-    distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
+    distributionUrl = "https://rest.services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
 }
 
 dependencies {
@@ -30,7 +30,17 @@ dependencies {
 
 }
 
-//task run(type: JaveExec, dependsOn: classes) {
-//    main = 'Main'
-//    standardInput = System.in
-//}
+task run(type: JavaExec, dependsOn: classes) {
+    classpath sourceSets.main.runtimeClasspath
+    main = 'rest.Main'
+    standardInput = System.in
+}
+
+task scalaTest(dependsOn: ['testClasses'], type: JavaExec) {
+    main = 'org.scalatest.tools.Runner'
+    args = ['-R', 'build/classes/scala/test', '-o']
+    classpath sourceSets.test.runtimeClasspath
+}
+
+
+test.dependsOn scalaTest

@@ -1,11 +1,11 @@
-package utils
+package rest.utils
 
 import java.text.SimpleDateFormat
 import java.util.Date
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.unmarshalling.{FromStringUnmarshaller, Unmarshaller}
-import objects._
+import rest.objects._
 import spray.json.{DefaultJsonProtocol, JsString, JsValue, JsonFormat, RootJsonFormat}
 
 

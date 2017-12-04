@@ -1,4 +1,4 @@
-package actors
+package rest.actors
 
 import java.util.concurrent.TimeUnit
 
@@ -6,8 +6,8 @@ import akka.Done
 import akka.actor.{Actor, ActorRef, Props, Status}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import objects.Schema
-import utils.JsonSupport
+import rest.objects.Schema
+import rest.utils.JsonSupport
 import akka.pattern.gracefulStop
 
 import concurrent.duration._

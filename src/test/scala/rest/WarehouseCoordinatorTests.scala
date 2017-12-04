@@ -1,8 +1,10 @@
+package rest
+
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import objects._
 import org.scalatest._
-import utils.JsonSupport
+import rest.objects._
+import rest.utils.JsonSupport
 
 class WarehouseCoordinatorTests extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport {
   val webServer = new WebServer

@@ -1,13 +1,12 @@
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.ValidationRejection
-import akka.http.scaladsl.testkit.ScalatestRouteTest
-import objects._
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
-import utils.JsonSupport
+package rest
 
-/**
-  * Created by yuriy on 30.11.17.
-  */
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.testkit.ScalatestRouteTest
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import rest.objects._
+import rest.utils.JsonSupport
+
+
 class ItemTests extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport with BeforeAndAfterAll{
   val webServer = new WebServer
   val schema = Schema(

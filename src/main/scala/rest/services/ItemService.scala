@@ -1,10 +1,10 @@
-package services
+package rest.services
 
-import actors._
+import rest.actors._
 import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
-import objects.Item
+import rest.objects.Item
 import scala.concurrent.{ExecutionContext, Future}
 
 

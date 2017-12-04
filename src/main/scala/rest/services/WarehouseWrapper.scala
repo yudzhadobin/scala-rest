@@ -1,6 +1,6 @@
-package services
+package rest.services
 
-import objects.{Filter, Item}
+import rest.objects.{Filter, Item}
 
 
 class WarehouseWrapper {

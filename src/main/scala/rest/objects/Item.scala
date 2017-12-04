@@ -1,4 +1,4 @@
-package objects
+package rest.objects
 
 trait withFields{
   val fields: Map[String, AcceptableType[_]]

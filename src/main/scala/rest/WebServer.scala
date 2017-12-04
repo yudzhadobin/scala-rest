@@ -1,15 +1,17 @@
+package rest
+
 import java.util.concurrent.TimeUnit
 
-import actors.WarehousesCoordinatorActor
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.directives.{DebuggingDirectives, LoggingMagnet}
 import akka.http.scaladsl.server._
+import akka.http.scaladsl.server.directives.{DebuggingDirectives, LoggingMagnet}
 import akka.util.Timeout
 import com.typesafe.scalalogging.StrictLogging
-import objects._
-import services.{ItemService, WarehouseService, WarehousesManagementService}
-import utils.JsonSupport
+import rest.actors.WarehousesCoordinatorActor
+import rest.objects._
+import rest.services.{ItemService, WarehouseService, WarehousesManagementService}
+import rest.utils.JsonSupport
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
@@ -19,10 +21,10 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport w
   implicit val executionContext: ExecutionContext = system.dispatcher
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
-  val coordinator: ActorRef = system.actorOf(Props(new WarehousesCoordinatorActor()), name = "coord")
-  val warehouseManagementService: WarehousesManagementService = new WarehousesManagementService(coordinator)
-  val warehouseService: WarehouseService = new WarehouseService(coordinator)
-  val itemService: ItemService = new ItemService(coordinator)
+  private val coordinator: ActorRef = system.actorOf(Props(new WarehousesCoordinatorActor()), name = "coord")
+  private val warehouseManagementService = new WarehousesManagementService(coordinator)
+  private val warehouseService = new WarehouseService(coordinator)
+  private val itemService = new ItemService(coordinator)
 
   override def routes: Route =
     handleRejections(rejectionHandler) {

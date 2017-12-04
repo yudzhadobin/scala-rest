@@ -1,11 +1,12 @@
+package rest
+
 import java.text.SimpleDateFormat
 
 import akka.http.scaladsl.model.{HttpEntity, MediaTypes, StatusCodes}
-import akka.http.scaladsl.server.ValidationRejection
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import objects._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
-import utils.JsonSupport
+import rest.objects._
+import rest.utils.JsonSupport
 
 
 class WarehouseTests extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport with BeforeAndAfterAll {

@@ -1,4 +1,4 @@
-package objects
+package rest.objects
 
 
 case class Schema(name: String, fields: List[Field]) {

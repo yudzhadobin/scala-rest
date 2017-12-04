@@ -20,14 +20,14 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
   implicit val timeout = Timeout(Duration.create(5, TimeUnit.SECONDS))
 
   override def receive = {
-    case message: CreateStorageMessage =>
+    case message: CreateStorage =>
       val answerRef = sender()
       createStorage(message.schema) onComplete {
         case Success(_) => answerRef ! message.schema
         case Failure(e) => answerRef ! Status.Failure(e)
       }
 
-    case message: DeleteStorageMessage =>
+    case message: DeleteStorage =>
       context.child(message.storageName) match {
         case Some(actorRef) =>
           context.stop(actorRef)
@@ -35,20 +35,20 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
         case None => sender ! Status.Failure(new IllegalArgumentException(s"actor with name ${message.storageName} not found"))
       }
 
-    case message: ReplaceAllStoragesMessage =>
+    case message: ReplaceAllStorages =>
       val resultActor = sender()
       Future.sequence(context.children.map(child => gracefulStop(child, 5 seconds))).flatMap(
         _ => Future.sequence(message.schemas.map(createStorage))
       ) onComplete {
-        case Success(_) => self ? GetAllSchemasMessage() pipeTo resultActor
+        case Success(_) => self ? GetAllSchemas() pipeTo resultActor
         case Failure(e) => sender() ! e
       }
 
-    case message: GetActorRefMessage =>
+    case message: GetActor =>
       sender ! context.child(message.name)
 
-    case _: GetAllSchemasMessage =>
-      Future.sequence(context.children.map(child => child ? GetSchemaMessage())) pipeTo sender
+    case _: GetAllSchemas =>
+      Future.sequence(context.children.map(child => child ? GetSchema())) pipeTo sender
 
   }
 
@@ -59,8 +59,8 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
   }
 }
 
-case class CreateStorageMessage(schema: Schema)
-case class DeleteStorageMessage(storageName: String)
-case class GetAllSchemasMessage()
-case class ReplaceAllStoragesMessage(schemas: List[Schema])
-case class GetActorRefMessage(name: String)
+case class CreateStorage(schema: Schema)
+case class DeleteStorage(storageName: String)
+case class GetAllSchemas()
+case class ReplaceAllStorages(schemas: List[Schema])
+case class GetActor(name: String)

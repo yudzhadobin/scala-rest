@@ -9,9 +9,6 @@ import objects._
 import spray.json.{DefaultJsonProtocol, JsString, JsValue, JsonFormat, RootJsonFormat}
 
 
-/**
-  * Created by yuriy on 08.11.17.
-  */
 trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol{
   private[JsonSupport] val utils = new AcceptableTypeUtils
 

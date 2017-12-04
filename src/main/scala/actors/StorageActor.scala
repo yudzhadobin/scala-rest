@@ -3,27 +3,25 @@ package actors
 import akka.Done
 import akka.actor.{Actor, Status}
 import objects._
-import services.StorageService
+import services.StorageWrapper
 
-/**
-  * Created by yuriy on 31.10.17.
-  */
+
 class StorageActor(val schema: Schema) extends Actor {
 
-  val storage = new StorageService
+  val storage = new StorageWrapper
   val registrar = new Registrar()
 
   override def receive = {
-    case message: CreateItemMessage =>
+    case message: CreateItem =>
       val item = registrar.registerItem(message.item)
       storage.put(item)
       sender() ! storage.getById(item.id.get).get
 
-    case message: DeleteItemMessage =>
+    case message: DeleteItem =>
       storage.remove(message.id)
       sender() ! Done
 
-    case message: FindItemMessage =>
+    case message: FindItem =>
       storage.getById(message.id) match {
         case Some(item) => sender() ! item
         case None => sender() ! Status.Failure(
@@ -31,19 +29,19 @@ class StorageActor(val schema: Schema) extends Actor {
         )
       }
 
-    case message: UpdateItemMessage =>
+    case message: UpdateItem =>
       storage.update(message.item)
       sender() ! storage.getById(message.item.id.get).get
 
-    case message: ViewMessage =>
+    case message: View =>
       sender() ! storage.view(message.filter)
 
-    case message: ReplaceItemsMessage =>
+    case message: ReplaceItems =>
       storage.clear()
       message.items.map(registrar.registerItem).foreach(storage.put)
       sender() ! storage.view()
 
-    case _: GetSchemaMessage =>
+    case _: GetSchema =>
       sender() ! schema
 
     case _ => println("not supported")
@@ -61,16 +59,17 @@ class StorageActor(val schema: Schema) extends Actor {
 
     private def generateId(): Long = {
       currentId += 1
-      return currentId
+
+      currentId
     }
   }
 }
 
 
-case class ViewMessage(filter: Option[Filter])
-case class CreateItemMessage(item: Item)
-case class ReplaceItemsMessage(items: List[Item])
-case class DeleteItemMessage(id: Long)
-case class UpdateItemMessage(item: Item)
-case class FindItemMessage(id: Long)
-case class GetSchemaMessage()
+case class View(filter: Option[Filter])
+case class CreateItem(item: Item)
+case class ReplaceItems(items: List[Item])
+case class DeleteItem(id: Long)
+case class UpdateItem(item: Item)
+case class FindItem(id: Long)
+case class GetSchema()

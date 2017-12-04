@@ -1,9 +1,6 @@
 package objects
 
 
-/**
-  * Created by yuriy on 28.10.17.
-  */
 final case class Item(id: Option[Long], fields: Map[String, AcceptableType[_]]) {
 
   def isAcceptedForFilter(filter: Filter) : Boolean = {

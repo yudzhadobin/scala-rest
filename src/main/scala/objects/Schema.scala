@@ -1,8 +1,6 @@
 package objects
 
-/**
-  * Created by yuriy on 06.11.17.
-  */
+
 case class Schema(name: String, fields: List[Field]) {
 
   def validate(item: Item): Boolean = {

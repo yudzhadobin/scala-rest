@@ -2,9 +2,7 @@ package objects
 
 import java.util.Date
 
-/**
-  * Created by yuriy on 21.11.17.
-  */
+
 abstract class AcceptableType[T] {
   val value:T
 }

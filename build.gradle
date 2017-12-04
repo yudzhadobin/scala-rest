@@ -1,7 +1,9 @@
 group 'scala-rest'
 version '1.0-SNAPSHOT'
 
+apply plugin: 'java'
 apply plugin: 'scala'
+apply plugin: 'distribution'
 
 repositories{
     mavenCentral()
@@ -26,4 +28,7 @@ dependencies {
 
 }
 
-
+task run(type: JaveExec, dependsOn: classes) {
+    main = 'Main'
+    standardInput = System.in
+}

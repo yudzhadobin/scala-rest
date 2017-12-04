@@ -30,7 +30,7 @@ class ItemTests extends WordSpec with Matchers with ScalatestRouteTest with Json
 
   "item service should allow us to find item in storage and replace it" should {
     s"get request with correct id should return itemInStorage" in {
-      Get(s"/storage/${schema.name}/item?id=${itemInStorage.id.get}") ~> webServer.routes ~> check{
+      Get(s"/storage/${schema.name}/item/${itemInStorage.id.get}") ~> webServer.routes ~> check{
         val responseItem = responseAs[Item]
         itemInStorage.id.get should be (responseItem.id.get)
         responseItem.fields.get("intField").get should be (IntType(5))
@@ -40,8 +40,8 @@ class ItemTests extends WordSpec with Matchers with ScalatestRouteTest with Json
 
     val wrongId = 999
     s"get request with id: $wrongId should return BadGetway" in {
-      Get(s"/storage/${schema.name}/item?id=$wrongId") ~> webServer.routes ~> check{
-        status shouldEqual StatusCodes.BadRequest
+      Get(s"/storage/${schema.name}/item/$wrongId") ~> webServer.routes ~> check{
+        status shouldEqual StatusCodes.NotFound
       }
     }
 

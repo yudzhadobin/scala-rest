@@ -1,30 +1,34 @@
 import akka.actor.ActorSystem
-import akka.http.scaladsl.server.HttpApp
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.{ExceptionHandler, HttpApp, Route}
+import akka.http.scaladsl.model.{HttpRequest, RemoteAddress, StatusCodes}
 import objects._
 import services.Service
 import utils.JsonSupport
+import akka.http.scaladsl.server.directives.{DebuggingDirectives, LoggingMagnet}
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.{Failure, Success}
 
 
-class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport {
+class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport with StrictLogging {
   val service: Service = new Service
 
   override def routes: Route =
-    pathPrefix("storage") {
-      pathEndOrSingleSlash {
-        storageCoordinatorRoute
-      } ~
-        pathPrefix(Segment) { storageName =>
+    handleExceptions(exceptionHandler) {
+      loggingRequestRoute {
+        pathPrefix("storage") {
           pathEndOrSingleSlash {
-            storageRoute(storageName)
+            storageCoordinatorRoute
           } ~
-            path("item") {
-              itemRoute(storageName)
+            pathPrefix(Segment) { storageName =>
+              pathEndOrSingleSlash {
+                storageRoute(storageName)
+              } ~ pathPrefix("item") {
+                itemRoute(storageName)
+              }
             }
         }
+      }
     }
 
   private def storageCoordinatorRoute: Route = {
@@ -127,12 +131,12 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport {
   }
 
   private def itemRoute(storageName: String): Route = {
-    (get & parameter("id".as[Int])) { id =>
+    (get & path(LongNumber)) { id =>
       val future = service.findItem(storageName, id)
 
       onComplete(future) {
         case Success(item) => complete(StatusCodes.OK, item)
-        case Failure(e) => complete(StatusCodes.BadRequest, e.toString)
+        case Failure(e) => complete(StatusCodes.NotFound, e.toString)
       }
     } ~
       (put & entity(as[Item])) { item =>
@@ -153,4 +157,28 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport {
         }
       }
   }
+
+  private def loggingRequestRoute(route: Route): Route = {
+    extractClientIP { clientIp =>
+      DebuggingDirectives.logRequest(LoggingMagnet(_ => printRequestMethod(_, clientIp))) {
+        route
+      }
+    }
+  }
+
+  private def printRequestMethod(req: HttpRequest, ip: RemoteAddress): Unit = {
+    val clientIp = ip.toOption.map(_.getHostAddress).getOrElse("unknown")
+    logger.info(s"Request: http-method: ${req.method.name}, uri: ${req.uri}, client ip: $clientIp")
+  }
+
+  private val exceptionHandler: ExceptionHandler = ExceptionHandler {
+    case e: Exception =>
+      extractMethod { method =>
+        extractUri { uri =>
+          logger.error(s"Failed to ${method.name.toUpperCase} ${uri.path}",e)
+          complete(StatusCodes.InternalServerError, e.toString)
+        }
+      }
+  }
+
 }

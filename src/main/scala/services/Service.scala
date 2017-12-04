@@ -36,7 +36,6 @@ class Service(implicit val system: ActorSystem) {
   }
 
   def viewItems(storageName: String, filter: Option[Filter] = Option.empty): Future[List[Item]] = {
-    println("view items")
     (coordinator ? GetActor(storageName)).mapTo[Some[ActorRef]].flatMap{
       actorRef => actorRef.get ? View(filter)
     }.mapTo[List[Item]]

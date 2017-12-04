@@ -7,31 +7,31 @@ import objects._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import utils.JsonSupport
 
-/**
-  * Created by yuriy on 30.11.17.
-  */
-class StorageTests extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport with BeforeAndAfterAll {
+
+class WarehouseTests extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport with BeforeAndAfterAll {
   val webServer = new WebServer
   val schema = Schema(
     name = "test",
     fields =
-      Field("intField", classOf[IntType]) :: Field("dateField", classOf[DateType]) ::
-        Field("doubleField", classOf[DoubleType]) :: Nil
+      List(
+        Field("intField", classOf[IntType]), Field("dateField", classOf[DateType]),
+        Field("doubleField", classOf[DoubleType])
+      )
   )
   val dateFormat = new SimpleDateFormat("yyyy.MM.dd")
 
 
   override protected def beforeAll(): Unit = {
-    Post("/storage", schema) ~> webServer.routes ~> check {
+    Post("/warehouse", schema) ~> webServer.routes ~> check {
       handled shouldBe true
     }
   }
 
-  "The service should allow us to CRUD items in storage" should {
+  "The service should allow us to CRUD items in warehouse" should {
 
     "check prestart conditions" in {
-      Get("/storage") ~> webServer.routes ~> check {
-        responseAs[List[Schema]] should be(schema :: Nil)
+      Get("/warehouse") ~> webServer.routes ~> check {
+        responseAs[List[Schema]] should be(List(schema))
       }
     }
 
@@ -54,30 +54,31 @@ class StorageTests extends WordSpec with Matchers with ScalatestRouteTest with J
     var itemId = -1l
 
     "Post request with valid body should return Item with id and fields" in {
-      Post(s"/storage/${schema.name}", HttpEntity(MediaTypes.`application/json`, validItemJson)) ~> webServer.routes ~> check {
+      Post(s"/warehouse/${schema.name}", HttpEntity(MediaTypes.`application/json`, validItemJson)) ~> webServer.routes ~> check {
         val responseItem = responseAs[Item]
         responseItem.id shouldNot be (None)
         itemId = responseItem.id.get
-        responseItem.fields.get("intField").get should be (IntType(5))
-        responseItem.fields.get("dateField").get.value should be (format.parse("2017.12.30").toString)
-        responseItem.fields.get("doubleField").get should be (DoubleType(3.0))
+
+        responseItem.fields("intField") should be (IntType(5))
+        responseItem.fields("dateField").value should be (format.parse("2017.12.30").toString)
+        responseItem.fields("doubleField") should be (DoubleType(3.0))
       }
     }
 
     "Post request with not sutiable item should be rejected" in {
-      Post(s"/storage/${schema.name}", HttpEntity(MediaTypes.`application/json`, invalidItemJson)) ~> webServer.routes ~> check {
+      Post(s"/warehouse/${schema.name}", HttpEntity(MediaTypes.`application/json`, invalidItemJson)) ~> webServer.routes ~> check {
         rejection shouldEqual ValidationRejection("item not suitable to schema", None)
       }
     }
 
     s"Delete request delete item with id: ${itemId}" in {
-      Delete(s"/storage/${schema.name}?id=${itemId}") ~> webServer.routes ~> check {
+      Delete(s"/warehouse/${schema.name}?id=${itemId}") ~> webServer.routes ~> check {
         status shouldEqual StatusCodes.OK
       }
     }
 
-    "After delete storage should be empty" in {
-      Get(s"/storage/${schema.name}") ~> webServer.routes ~> check {
+    "After delete warehouse should be empty" in {
+      Get(s"/warehouse/${schema.name}") ~> webServer.routes ~> check {
         responseAs[List[Item]] should be(empty)
       }
     }
@@ -97,8 +98,8 @@ class StorageTests extends WordSpec with Matchers with ScalatestRouteTest with J
                          |		"doubleField" : "7.0"
                          |}}]""".stripMargin
 
-    "Put request replaces all item in storage" in {
-      Put(s"/storage/${schema.name}", HttpEntity(MediaTypes.`application/json`, validPutJson)) ~> webServer.routes ~> check {
+    "Put request replaces all item in warehouse" in {
+      Put(s"/warehouse/${schema.name}", HttpEntity(MediaTypes.`application/json`, validPutJson)) ~> webServer.routes ~> check {
         responseAs[List[Item]] should have length (2)
       }
     }

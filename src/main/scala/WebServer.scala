@@ -1,86 +1,95 @@
-import akka.actor.ActorSystem
-import akka.http.scaladsl.server.{ExceptionHandler, HttpApp, Route}
-import akka.http.scaladsl.model.{HttpRequest, RemoteAddress, StatusCodes}
-import objects._
-import services.Service
-import utils.JsonSupport
-import akka.http.scaladsl.server.directives.{DebuggingDirectives, LoggingMagnet}
-import com.typesafe.scalalogging.StrictLogging
+import java.util.concurrent.TimeUnit
 
+import actors.WarehousesCoordinatorActor
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.http.scaladsl.model.{HttpRequest, RemoteAddress, StatusCodes}
+import akka.http.scaladsl.server.directives.{DebuggingDirectives, LoggingMagnet}
+import akka.http.scaladsl.server.{ExceptionHandler, HttpApp, Route}
+import akka.util.Timeout
+import com.typesafe.scalalogging.StrictLogging
+import objects._
+import services.{ItemService, WarehouseService, WarehousesManagementService}
+import utils.JsonSupport
+
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 
 class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport with StrictLogging {
-  val service: Service = new Service
+  implicit val executionContext: ExecutionContext = system.dispatcher
+  implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
+
+  val coordinator: ActorRef = system.actorOf(Props(new WarehousesCoordinatorActor()), name = "coord")
+  val warehouseManagementService: WarehousesManagementService = new WarehousesManagementService(coordinator)
+  val warehouseService: WarehouseService = new WarehouseService(coordinator)
+  val itemService: ItemService = new ItemService(coordinator)
 
   override def routes: Route =
     handleExceptions(exceptionHandler) {
       loggingRequestRoute {
-        pathPrefix("storage") {
+        pathPrefix("warehouse") {
           pathEndOrSingleSlash {
-            storageCoordinatorRoute
+            warehouseCoordinatorRoute
           } ~
-            pathPrefix(Segment) { storageName =>
+            pathPrefix(Segment) { warehouseName =>
               pathEndOrSingleSlash {
-                storageRoute(storageName)
+                warehouseRoute(warehouseName)
               } ~ pathPrefix("item") {
-                itemRoute(storageName)
+                itemRoute(warehouseName)
               }
             }
         }
       }
     }
 
-  private def storageCoordinatorRoute: Route = {
+  private def warehouseCoordinatorRoute: Route = {
     get {
-      val future = service.getAllStoragesSchemas()
+      val future = warehouseManagementService.getAllWarehousesSchemas()
 
       onComplete(future) {
         case Success(schemas) =>
           complete(StatusCodes.OK, schemas)
-        case Failure(e) =>
-          complete(StatusCodes.InternalServerError, e.toString)
+        case Failure(e) => throw e
       }
     } ~
       (post & entity(as[Schema])) { schema =>
-        val future = service.createStorage(schema)
+        val future = warehouseManagementService.createWarehouse(schema)
 
         onComplete(future) {
           case Success(uploadedSchema) =>
             complete(StatusCodes.OK, uploadedSchema)
-          case Failure(e) =>
-            complete(StatusCodes.InternalServerError, e.toString)
+          case Failure(e) => throw e
         }
       } ~
       (put & entity(as[List[Schema]])) { schemas =>
-        val future = service.replaceAllStorages(schemas)
+        val future = warehouseManagementService.replaceAllWarehouses(schemas)
 
         onComplete(future) {
           case Success(newSchemas) => complete(StatusCodes.OK, newSchemas)
-          case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+          case Failure(e) => throw e
         }
       } ~
-      (delete & parameter("name")) { storageName =>
-        val future = service.deleteStorage(storageName)
+      (delete & parameter("name")) { warehouseName =>
+        val future = warehouseManagementService.deleteWarehouse(warehouseName)
 
         onComplete(future) {
-          case Success(_) => complete(StatusCodes.OK, "storage dropped")
-          case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+          case Success(_) => complete(StatusCodes.OK, "warehouse dropped")
+          case Failure(e) => throw e
         }
       }
   }
 
-  private def storageRoute(storageName: String): Route = {
+  private def warehouseRoute(warehouseName: String): Route = {
     get {
-      val future = service.viewItems(storageName)
+      val future = warehouseService.viewItems(warehouseName)
 
       onComplete(future) {
         case Success(view) => complete(StatusCodes.OK, view)
-        case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+        case Failure(e) => throw e
       }
     } ~
       (get & parameters('fieldName, 'value.as[AcceptableType[_]]).as(Filter)) { filter =>
-        val future = service.viewItems(storageName, Some(filter))
+        val future = warehouseService.viewItems(warehouseName, Some(filter))
 
         onComplete(future) {
           case Success(view) => complete(StatusCodes.OK, view)
@@ -88,71 +97,69 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport w
         }
       } ~
       (post & entity(as[Item])) { item =>
-        val schemaFuture = service.getSchema(storageName)
+        val schemaFuture = warehouseService.getSchema(warehouseName)
 
         onComplete(schemaFuture) {
           case Success(schema: Schema) => validate(schema.validate(item), "item not suitable to schema") {
-            val itemFuture = service.createItem(storageName, item)
+            val itemFuture = warehouseService.createItem(warehouseName, item)
 
             onComplete(itemFuture) {
               case Success(item) => complete(StatusCodes.Created, item)
-              case Failure(e) =>
-                e.printStackTrace()
-                complete(StatusCodes.InternalServerError, e.toString)
+              case Failure(e) => throw e
             }
           }
-          case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+          case Failure(e) => throw e
         }
       } ~
       (put & entity(as[List[Item]])) { items =>
 
-        val schemaFuture = service.getSchema(storageName)
+        val schemaFuture = warehouseService.getSchema(warehouseName)
 
         onComplete(schemaFuture) {
           case Success(schema: Schema) => validate(items.forall(schema.validate), "items are not suitable to schema") {
-            val itemsFuture = service.replaceAllItems(storageName, items)
+            val itemsFuture = warehouseService.replaceAllItems(warehouseName, items)
 
             onComplete(itemsFuture) {
               case Success(items) => complete(StatusCodes.Created, items)
-              case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+              case Failure(e) => throw e
             }
           }
-          case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+          case Failure(e) => throw e
         }
       } ~
       (delete & parameters('id.as[Long])) { id =>
-        val deleteFuture = service.deleteItem(storageName, id)
+        val deleteFuture = warehouseService.deleteItem(warehouseName, id)
 
         onComplete(deleteFuture) {
           case Success(_) => complete(StatusCodes.OK, "item deleted")
-          case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+          case Failure(e) => throw e
         }
       }
   }
 
-  private def itemRoute(storageName: String): Route = {
+  private def itemRoute(warehouseName: String): Route = {
     (get & path(LongNumber)) { id =>
-      val future = service.findItem(storageName, id)
+      val future = itemService.findItem(warehouseName, id)
 
       onComplete(future) {
         case Success(item) => complete(StatusCodes.OK, item)
-        case Failure(e) => complete(StatusCodes.NotFound, e.toString)
+        case Failure(e) => throw e
       }
     } ~
       (put & entity(as[Item])) { item =>
         validate(item.id.isDefined, "id have to be declared") {
-          val schemaFuture = service.getSchema(storageName)
+          val schemaFuture = warehouseService.getSchema(warehouseName)
 
           onComplete(schemaFuture) {
             case Success(schema: Schema) => validate(schema.validate(item), "item is not suitable to schema") {
-              val future = service.updateItem(storageName, item)
+              val future = itemService.updateItem(warehouseName, item)
 
               onComplete(future) {
                 case Success(value) => complete(StatusCodes.OK, value)
-                case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+                case Failure(e) => throw e
               }
             }
-            case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
+            case Failure(e) => throw e
           }
         }
       }

@@ -3,26 +3,26 @@ package actors
 import akka.Done
 import akka.actor.{Actor, Status}
 import objects._
-import services.StorageWrapper
+import services.WarehouseWrapper
 
 
-class StorageActor(val schema: Schema) extends Actor {
+class WarehouseActor(val schema: Schema) extends Actor {
 
-  val storage = new StorageWrapper
+  val warehouse = new WarehouseWrapper
   val registrar = new Registrar()
 
   override def receive = {
     case message: CreateItem =>
       val item = registrar.registerItem(message.item)
-      storage.put(item)
-      sender() ! storage.getById(item.id.get).get
+      warehouse.put(item)
+      sender() ! warehouse.getById(item.id.get).get
 
     case message: DeleteItem =>
-      storage.remove(message.id)
+      warehouse.remove(message.id)
       sender() ! Done
 
     case message: FindItem =>
-      storage.getById(message.id) match {
+      warehouse.getById(message.id) match {
         case Some(item) => sender() ! item
         case None => sender() ! Status.Failure(
           new IllegalArgumentException(s"item with id ${message.id} not found")
@@ -30,16 +30,16 @@ class StorageActor(val schema: Schema) extends Actor {
       }
 
     case message: UpdateItem =>
-      storage.update(message.item)
-      sender() ! storage.getById(message.item.id.get).get
+      warehouse.update(message.item)
+      sender() ! warehouse.getById(message.item.id.get).get
 
     case message: View =>
-      sender() ! storage.view(message.filter)
+      sender() ! warehouse.view(message.filter)
 
     case message: ReplaceItems =>
-      storage.clear()
-      message.items.map(registrar.registerItem).foreach(storage.put)
-      sender() ! storage.view()
+      warehouse.clear()
+      message.items.map(registrar.registerItem).foreach(warehouse.put)
+      sender() ! warehouse.view()
 
     case _: GetSchema =>
       sender() ! schema
@@ -47,7 +47,7 @@ class StorageActor(val schema: Schema) extends Actor {
     case _ => println("not supported")
   }
 
-  private[StorageActor] class Registrar {
+  private[WarehouseActor] class Registrar {
     private var currentId: Long = 0
 
     def registerItem(item: Item): Item = {

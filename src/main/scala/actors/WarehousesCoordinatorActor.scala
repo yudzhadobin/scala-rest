@@ -15,30 +15,30 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 
-class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) extends Actor with JsonSupport {
+class WarehousesCoordinatorActor(implicit executionContext: ExecutionContext) extends Actor with JsonSupport {
 
   implicit val timeout = Timeout(Duration.create(5, TimeUnit.SECONDS))
 
   override def receive = {
-    case message: CreateStorage =>
+    case message: CreateWarehouse =>
       val answerRef = sender()
-      createStorage(message.schema) onComplete {
+      createWarehouse(message.schema) onComplete {
         case Success(_) => answerRef ! message.schema
         case Failure(e) => answerRef ! Status.Failure(e)
       }
 
-    case message: DeleteStorage =>
-      context.child(message.storageName) match {
+    case message: DeleteWarehouse =>
+      context.child(message.warehouseName) match {
         case Some(actorRef) =>
           context.stop(actorRef)
           sender ! Done
-        case None => sender ! Status.Failure(new IllegalArgumentException(s"actor with name ${message.storageName} not found"))
+        case None => sender ! Status.Failure(new IllegalArgumentException(s"actor with name ${message.warehouseName} not found"))
       }
 
-    case message: ReplaceAllStorages =>
+    case message: ReplaceAllWarehouses =>
       val resultActor = sender()
       Future.sequence(context.children.map(child => gracefulStop(child, 5 seconds))).flatMap(
-        _ => Future.sequence(message.schemas.map(createStorage))
+        _ => Future.sequence(message.schemas.map(createWarehouse))
       ) onComplete {
         case Success(_) => self ? GetAllSchemas() pipeTo resultActor
         case Failure(e) => sender() ! e
@@ -52,15 +52,15 @@ class StorageCoordinatorActor(implicit  executionContext: ExecutionContext) exte
 
   }
 
-  private def createStorage(schema: Schema): Future[ActorRef] = {
+  private def createWarehouse(schema: Schema): Future[ActorRef] = {
     Future {
-      context.actorOf(Props(new StorageActor(schema)), name = schema.name)
+      context.actorOf(Props(new WarehouseActor(schema)), name = schema.name)
     }
   }
 }
 
-case class CreateStorage(schema: Schema)
-case class DeleteStorage(storageName: String)
+case class CreateWarehouse(schema: Schema)
+case class DeleteWarehouse(warehouseName: String)
 case class GetAllSchemas()
-case class ReplaceAllStorages(schemas: List[Schema])
+case class ReplaceAllWarehouses(schemas: List[Schema])
 case class GetActor(name: String)

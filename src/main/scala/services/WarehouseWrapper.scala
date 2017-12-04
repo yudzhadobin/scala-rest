@@ -10,11 +10,11 @@ class WarehouseWrapper {
   def apply: WarehouseWrapper = new WarehouseWrapper()
 
   def put(item: Item): Unit = {
-    warehouse +=  item.id.get -> item
+    warehouse +=  item.id -> item
   }
 
   def getById(id: Long): Option[Item] = {
-    warehouse.values.find((item: Item) => item.id.get == id)
+    warehouse.values.find((item: Item) => item.id == id)
   }
 
   def remove(id: Long): Unit = {
@@ -30,7 +30,7 @@ class WarehouseWrapper {
   }
 
   def update(item: Item): Unit = {
-    remove(item.id.get)
+    remove(item.id)
     put(item)
   }
 

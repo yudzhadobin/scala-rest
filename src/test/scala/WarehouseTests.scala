@@ -56,8 +56,7 @@ class WarehouseTests extends WordSpec with Matchers with ScalatestRouteTest with
     "Post request with valid body should return Item with id and fields" in {
       Post(s"/warehouse/${schema.name}", HttpEntity(MediaTypes.`application/json`, validItemJson)) ~> webServer.routes ~> check {
         val responseItem = responseAs[Item]
-        responseItem.id shouldNot be (None)
-        itemId = responseItem.id.get
+        itemId = responseItem.id
 
         responseItem.fields("intField") should be (IntType(5))
         responseItem.fields("dateField").value should be (format.parse("2017.12.30").toString)
@@ -67,7 +66,7 @@ class WarehouseTests extends WordSpec with Matchers with ScalatestRouteTest with
 
     "Post request with not sutiable item should be rejected" in {
       Post(s"/warehouse/${schema.name}", HttpEntity(MediaTypes.`application/json`, invalidItemJson)) ~> webServer.routes ~> check {
-        rejection shouldEqual ValidationRejection("item not suitable to schema", None)
+        status shouldEqual StatusCodes.BadRequest
       }
     }
 
@@ -85,6 +84,7 @@ class WarehouseTests extends WordSpec with Matchers with ScalatestRouteTest with
 
     val validPutJson ="""[
                          |{
+                         |  "id": 1,
                          |	"fields": {
                          |		"intField" : "5",
                          |    "dateField" : "2017.12.30",
@@ -92,6 +92,7 @@ class WarehouseTests extends WordSpec with Matchers with ScalatestRouteTest with
                          |	}
                          |},
                          |{
+                         |  "id": 2,
                          |	"fields": {
                          |		"intField" : "3",
                          |    "dateField" : "2017.12.29",

@@ -9,13 +9,12 @@ import services.WarehouseWrapper
 class WarehouseActor(val schema: Schema) extends Actor {
 
   val warehouse = new WarehouseWrapper
-  val registrar = new Registrar()
 
   override def receive = {
     case message: CreateItem =>
-      val item = registrar.registerItem(message.item)
+      val item = Registrar.registerItem(message.rawItem)
       warehouse.put(item)
-      sender() ! warehouse.getById(item.id.get).get
+      sender() ! warehouse.getById(item.id).get
 
     case message: DeleteItem =>
       warehouse.remove(message.id)
@@ -31,14 +30,14 @@ class WarehouseActor(val schema: Schema) extends Actor {
 
     case message: UpdateItem =>
       warehouse.update(message.item)
-      sender() ! warehouse.getById(message.item.id.get).get
+      sender() ! warehouse.getById(message.item.id).get
 
     case message: View =>
       sender() ! warehouse.view(message.filter)
 
     case message: ReplaceItems =>
       warehouse.clear()
-      message.items.map(registrar.registerItem).foreach(warehouse.put)
+      message.items.foreach(warehouse.put)
       sender() ! warehouse.view()
 
     case _: GetSchema =>
@@ -47,27 +46,11 @@ class WarehouseActor(val schema: Schema) extends Actor {
     case _ => println("not supported")
   }
 
-  private[WarehouseActor] class Registrar {
-    private var currentId: Long = 0
-
-    def registerItem(item: Item): Item = {
-      item.id match {
-        case Some(value) => throw new Exception("item already registered")
-        case None => Item(Some(generateId()), item.fields)
-      }
-    }
-
-    private def generateId(): Long = {
-      currentId += 1
-
-      currentId
-    }
-  }
 }
 
 
 case class View(filter: Option[Filter])
-case class CreateItem(item: Item)
+case class CreateItem(rawItem: RawItem)
 case class ReplaceItems(items: List[Item])
 case class DeleteItem(id: Long)
 case class UpdateItem(item: Item)

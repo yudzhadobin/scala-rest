@@ -2,9 +2,9 @@ import java.util.concurrent.TimeUnit
 
 import actors.WarehousesCoordinatorActor
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model.{HttpRequest, RemoteAddress, StatusCodes}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.directives.{DebuggingDirectives, LoggingMagnet}
-import akka.http.scaladsl.server.{ExceptionHandler, HttpApp, Route}
+import akka.http.scaladsl.server._
 import akka.util.Timeout
 import com.typesafe.scalalogging.StrictLogging
 import objects._
@@ -25,19 +25,21 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport w
   val itemService: ItemService = new ItemService(coordinator)
 
   override def routes: Route =
-    handleExceptions(exceptionHandler) {
-      loggingRequestRoute {
-        pathPrefix("warehouse") {
-          pathEndOrSingleSlash {
-            warehouseCoordinatorRoute
-          } ~
-            pathPrefix(Segment) { warehouseName =>
-              pathEndOrSingleSlash {
-                warehouseRoute(warehouseName)
-              } ~ pathPrefix("item") {
-                itemRoute(warehouseName)
+    handleRejections(rejectionHandler) {
+      handleExceptions(exceptionHandler) {
+        loggingRequestRoute {
+          pathPrefix("warehouse") {
+            pathEndOrSingleSlash {
+              warehouseCoordinatorRoute
+            } ~
+              pathPrefix(Segment) { warehouseName =>
+                pathEndOrSingleSlash {
+                  warehouseRoute(warehouseName)
+                } ~ pathPrefix("item") {
+                  itemRoute(warehouseName)
+                }
               }
-            }
+          }
         }
       }
     }
@@ -96,12 +98,12 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport w
           case Failure(e) => complete(StatusCodes.InternalServerError, e.toString)
         }
       } ~
-      (post & entity(as[Item])) { item =>
+      (post & entity(as[RawItem])) { rawItem =>
         val schemaFuture = warehouseService.getSchema(warehouseName)
 
         onComplete(schemaFuture) {
-          case Success(schema: Schema) => validate(schema.validate(item), "item not suitable to schema") {
-            val itemFuture = warehouseService.createItem(warehouseName, item)
+          case Success(schema: Schema) => validate(schema.validate(rawItem), "item not suitable to schema") {
+            val itemFuture = warehouseService.createItem(warehouseName, rawItem)
 
             onComplete(itemFuture) {
               case Success(item) => complete(StatusCodes.Created, item)
@@ -147,22 +149,21 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport w
       }
     } ~
       (put & entity(as[Item])) { item =>
-        validate(item.id.isDefined, "id have to be declared") {
-          val schemaFuture = warehouseService.getSchema(warehouseName)
+        val schemaFuture = warehouseService.getSchema(warehouseName)
 
-          onComplete(schemaFuture) {
-            case Success(schema: Schema) => validate(schema.validate(item), "item is not suitable to schema") {
-              val future = itemService.updateItem(warehouseName, item)
+        onComplete(schemaFuture) {
+          case Success(schema: Schema) => validate(schema.validate(item), "item is not suitable to schema") {
+            val future = itemService.updateItem(warehouseName, item)
 
-              onComplete(future) {
-                case Success(value) => complete(StatusCodes.OK, value)
-                case Failure(e) => throw e
-              }
+            onComplete(future) {
+              case Success(value) => complete(StatusCodes.OK, value)
+              case Failure(e) => throw e
             }
-            case Failure(e) => throw e
           }
+          case Failure(e) => throw e
         }
       }
+
   }
 
   private def loggingRequestRoute(route: Route): Route = {
@@ -187,5 +188,12 @@ class WebServer(implicit system: ActorSystem) extends HttpApp with JsonSupport w
         }
       }
   }
+
+  private val rejectionHandler =
+    RejectionHandler.newBuilder().handle {
+      case _ => //todo customize
+        complete(HttpResponse(StatusCodes.BadRequest))
+      }
+      .result()
 
 }

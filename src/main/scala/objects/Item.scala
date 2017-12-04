@@ -1,8 +1,10 @@
 package objects
 
+trait withFields{
+  val fields: Map[String, AcceptableType[_]]
+}
 
-final case class Item(id: Option[Long], fields: Map[String, AcceptableType[_]]) {
-
+case class  Item private (id: Long, fields: Map[String, AcceptableType[_]]) extends withFields{
   def isAcceptedForFilter(filter: Filter) : Boolean = {
     val field = filter.fieldName
     val optionValue = fields.get(field)
@@ -14,3 +16,18 @@ final case class Item(id: Option[Long], fields: Map[String, AcceptableType[_]]) 
     }
   }
 }
+
+object Registrar {
+  private var currentId: Long = 0
+
+  def registerItem(item: RawItem): Item = Item(generateId(), item.fields)
+
+
+  private def generateId(): Long = {
+    currentId += 1
+
+    currentId
+  }
+}
+
+case class RawItem(fields: Map[String, AcceptableType[_]]) extends withFields

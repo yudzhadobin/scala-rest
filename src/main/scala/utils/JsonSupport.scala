@@ -47,6 +47,7 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol{
     }
   }
 
+  implicit val rawItemFormat: RootJsonFormat[RawItem] = jsonFormat1(RawItem)
   implicit val itemFormat: RootJsonFormat[Item] = jsonFormat2(Item)
   implicit val fieldFormat: RootJsonFormat[Field] = jsonFormat2(Field)
   implicit val schemaFormat: RootJsonFormat[Schema] = jsonFormat2(Schema)

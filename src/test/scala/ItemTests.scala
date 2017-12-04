@@ -22,7 +22,7 @@ class ItemTests extends WordSpec with Matchers with ScalatestRouteTest with Json
       handled shouldBe true
     }
     Post(s"/warehouse/${schema.name}",
-         Item(Option.empty, Map("intField" -> IntType(5), "doubleField" -> DoubleType(5)))) ~> webServer.routes ~> check {
+         RawItem(Map("intField" -> IntType(5), "doubleField" -> DoubleType(5)))) ~> webServer.routes ~> check {
       handled shouldBe true
       itemInWarehouse = responseAs[Item]
     }
@@ -30,7 +30,7 @@ class ItemTests extends WordSpec with Matchers with ScalatestRouteTest with Json
 
   "item service should allow us to find item in warehouse and replace it" should {
     s"get request with correct id should return itemInWarehouse" in {
-      Get(s"/warehouse/${schema.name}/item/${itemInWarehouse.id.get}") ~> webServer.routes ~> check{
+      Get(s"/warehouse/${schema.name}/item/${itemInWarehouse.id}") ~> webServer.routes ~> check{
         responseAs[Item] should be (itemInWarehouse)
       }
     }
@@ -43,14 +43,14 @@ class ItemTests extends WordSpec with Matchers with ScalatestRouteTest with Json
     }
 
     s"put request with empty id should be rejected" in {
-      Put(s"/warehouse/${schema.name}/item", Item(Option.empty, Map("intField" -> IntType(5)))) ~> webServer.routes ~> check{
-        rejection shouldEqual ValidationRejection("id have to be declared")
+      Put(s"/warehouse/${schema.name}/item", RawItem(Map("intField" -> IntType(5)))) ~> webServer.routes ~> check{
+        status shouldEqual StatusCodes.BadRequest
       }
     }
 
     s"put request with invalid item should be rejected" in {
-      Put(s"/warehouse/${schema.name}/item", Item(Some(1), Map("test" -> IntType(5)))) ~> webServer.routes ~> check{
-        rejection shouldEqual ValidationRejection("item is not suitable to schema")
+      Put(s"/warehouse/${schema.name}/item", Item(1, Map("test" -> IntType(5)))) ~> webServer.routes ~> check{
+        status shouldEqual StatusCodes.BadRequest
       }
     }
 

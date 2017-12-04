@@ -5,7 +5,8 @@ import akka.Done
 import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
-import objects.{Filter, Item, Schema}
+import objects.{Filter, Item, RawItem, Schema}
+
 import scala.concurrent.{ExecutionContext, Future}
 
 
@@ -24,9 +25,9 @@ class WarehouseService(val coordinator: ActorRef)
     }.mapTo[Schema]
   }
 
-  def createItem(warehouseName: String, item: Item): Future[Item] = {
+  def createItem(warehouseName: String, rawItem: RawItem): Future[Item] = {
     (coordinator ? GetActor(warehouseName)).mapTo[Some[ActorRef]].flatMap{
-      actorRef => actorRef.get ? CreateItem(item)
+      actorRef => actorRef.get ? CreateItem(rawItem)
     }.mapTo[Item]
   }
 
